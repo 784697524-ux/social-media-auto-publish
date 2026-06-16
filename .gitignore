@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+venv/
+cookies/
+logs/
+*.log
+*_qrcode_*.png
+*_frames/
+*.mp4
+*.mov

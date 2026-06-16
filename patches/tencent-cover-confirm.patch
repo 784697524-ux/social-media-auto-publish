@@ -1,0 +1,21 @@
+*** Begin Patch
+*** Update File: uploader/tencent_uploader/main.py
+@@
++    async def confirm_cover_dialog_if_visible(self, page: Page) -> bool:
++        for dialog_title in ("编辑封面", "编辑个人主页卡片"):
++            cover_dialog = page.locator("div.weui-desktop-dialog").filter(has_text=dialog_title).first
++            try:
++                if not await cover_dialog.count() or not await cover_dialog.is_visible():
++                    continue
++                confirm_button = cover_dialog.locator(
++                    'div.weui-desktop-dialog__ft button.weui-desktop-btn_primary:has-text("确认")'
++                ).first
++                await confirm_button.wait_for(state="visible", timeout=10000)
++                await confirm_button.click()
++                await page.wait_for_timeout(1000)
++                tencent_logger.success(_msg("🥳", "封面确认完成"))
++                return True
++            except Exception as exc:
++                tencent_logger.warning(_msg("😵", f"封面确认时出错，小人继续尝试发布: {exc}"))
++        return False
+*** End Patch
