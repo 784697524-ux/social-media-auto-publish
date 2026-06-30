@@ -1,0 +1,282 @@
+diff --git a/sau_cli.py b/sau_cli.py
+index e5c8727..7ae7c56 100644
+--- a/sau_cli.py
++++ b/sau_cli.py
+@@ -63,6 +63,7 @@ class DouyinVideoUploadRequest:
+     thumbnail_portrait_file: Path | None = None
+     product_link: str = ""
+     product_title: str = ""
++    location: str = ""
+     publish_strategy: str = DOUYIN_PUBLISH_STRATEGY_IMMEDIATE
+     debug: bool = True
+     headless: bool = True
+@@ -353,6 +354,7 @@ async def upload_video(request: DouyinVideoUploadRequest) -> Path:
+         ) if request.thumbnail_portrait_file or request.thumbnail_file else None,
+         productLink=request.product_link,
+         productTitle=request.product_title,
++        location=request.location,
+         publish_strategy=request.publish_strategy,
+         debug=request.debug,
+         headless=request.headless,
+@@ -597,6 +599,7 @@ def build_parser() -> argparse.ArgumentParser:
+     upload_video_parser.add_argument("--thumbnail-portrait", type=existing_file_path, help="Optional 3:4 portrait thumbnail path")
+     upload_video_parser.add_argument("--product-link", default="", help="Optional product link")
+     upload_video_parser.add_argument("--product-title", default="", help="Optional product title")
++    upload_video_parser.add_argument("--location", default="", help="Optional Douyin location/POI keyword")
+     add_runtime_flags(upload_video_parser)
+ 
+     upload_note_parser = douyin_actions.add_parser("upload-note", help="Upload one note to Douyin")
+@@ -758,6 +761,7 @@ async def dispatch(args: argparse.Namespace) -> int:
+                 thumbnail_portrait_file=args.thumbnail_portrait,
+                 product_link=args.product_link,
+                 product_title=args.product_title,
++                location=args.location,
+                 publish_strategy=publish_strategy,
+                 debug=args.debug,
+                 headless=args.headless,
+diff --git a/tests/test_sau_browser_cli.py b/tests/test_sau_browser_cli.py
+index c006b29..1b745fb 100644
+--- a/tests/test_sau_browser_cli.py
++++ b/tests/test_sau_browser_cli.py
+@@ -38,6 +38,29 @@ class BrowserCliParserTests(unittest.TestCase):
+ 
+         self.assertEqual(args.desc, "视频简介")
+ 
++    def test_douyin_upload_video_accepts_location(self):
++        with tempfile.TemporaryDirectory() as tmp_dir:
++            video_path = Path(tmp_dir) / "demo.mp4"
++            video_path.write_bytes(b"video")
++
++            parser = sau_cli.build_parser()
++            args = parser.parse_args(
++                [
++                    "douyin",
++                    "upload-video",
++                    "--account",
++                    "creator",
++                    "--file",
++                    str(video_path),
++                    "--title",
++                    "标题",
++                    "--location",
++                    "合肥滨湖银泰",
++                ]
++            )
++
++        self.assertEqual(args.location, "合肥滨湖银泰")
++
+     def test_douyin_upload_video_accepts_dual_thumbnail_aspects(self):
+         with tempfile.TemporaryDirectory() as tmp_dir:
+             video_path = Path(tmp_dir) / "demo.mp4"
+@@ -210,6 +233,7 @@ class BrowserCliDispatchTests(unittest.TestCase):
+             thumbnail_portrait=Path("portrait.png"),
+             product_link="",
+             product_title="",
++            location="合肥滨湖银泰",
+             debug=False,
+             headless=True,
+         )
+@@ -219,6 +243,7 @@ class BrowserCliDispatchTests(unittest.TestCase):
+         request = mock_upload.await_args.args[0]
+         self.assertEqual(request.thumbnail_landscape_file, Path("landscape.png"))
+         self.assertEqual(request.thumbnail_portrait_file, Path("portrait.png"))
++        self.assertEqual(request.location, "合肥滨湖银泰")
+ 
+     def test_dispatch_tencent_upload_video_uses_dual_thumbnail_request_fields(self):
+         args = Namespace(
+diff --git a/uploader/douyin_uploader/main.py b/uploader/douyin_uploader/main.py
+index 772086b..fea3f51 100644
+--- a/uploader/douyin_uploader/main.py
++++ b/uploader/douyin_uploader/main.py
+@@ -10,7 +10,7 @@ from patchright.async_api import Page
+ from patchright.async_api import Playwright
+ from patchright.async_api import async_playwright
+ 
+-from conf import DEBUG_MODE, LOCAL_CHROME_HEADLESS, LOCAL_CHROME_PATH
++from conf import BASE_DIR, DEBUG_MODE, LOCAL_CHROME_HEADLESS, LOCAL_CHROME_PATH
+ from uploader.base_video import BaseVideoUploader
+ from utils.base_social_media import set_init_script
+ from utils.login_qrcode import build_login_qrcode_path
+@@ -172,7 +172,9 @@ async def _is_douyin_login_completed(page: Page) -> bool:
+ 
+ async def _wait_for_douyin_login(page: Page, account_file: str, qrcode_info: dict, qrcode_callback=None, poll_interval: int = 3, max_checks: int = 100) -> dict:
+     qrcode_path = Path(qrcode_info["image_path"]) if qrcode_info.get("image_path") else None
+-    for _ in range(max_checks):
++    original_url = page.url
++    saw_2fa = False
++    for i in range(max_checks):
+         if await _is_douyin_login_completed(page):
+             douyin_logger.info(_msg("🥳", f"扫码成功，已经跳转到登录后页面: {page.url}"))
+             return _build_login_result(True, "success", "抖音扫码登录成功", account_file, qrcode_info, page.url)
+@@ -315,6 +317,10 @@ class DouYinBaseUploader(BaseVideoUploader):
+         await page.keyboard.press("Control+KeyA")
+         await page.keyboard.press("Delete")
+ 
++        desc_text = (description or "").strip()
++        if desc_text:
++            await page.keyboard.type(desc_text)
++
+         for tag in tags or []:
+             await page.keyboard.type(" #" + tag)
+             await page.keyboard.press("Space")
+@@ -323,12 +329,76 @@ class DouYinBaseUploader(BaseVideoUploader):
+     async def set_location(self, page: Page, location: str = ""):
+         if not location:
+             return
+-        await page.locator('div.semi-select span:has-text("输入地理位置")').click()
++        location_query = "合肥滨湖银泰百货" if location == "合肥滨湖银泰" else location
++        douyin_logger.info(_msg("📍", f"小人正在设置国内地理位置: {location_query}"))
++
++        await page.evaluate(
++            "() => document.querySelectorAll('.shepherd-element,.shepherd-modal-overlay-container').forEach(e => e.remove())"
++        )
++        try:
++            await page.get_by_text("我知道了", exact=True).click(timeout=1000)
++        except Exception:
++            pass
++        await page.keyboard.press("Escape")
++
++        add_tag_label = page.get_by_text("添加标签", exact=True).first
++        await add_tag_label.scroll_into_view_if_needed(timeout=10000)
++
++        async def choose_add_tag_select(index: int, option_text: str):
++            select = page.locator(
++                f'xpath=//*[normalize-space(.)="添加标签"]/following::div[contains(concat(" ", normalize-space(@class), " "), " semi-select ")][{index}]'
++            ).first
++            await select.wait_for(state="visible", timeout=10000)
++            select_text = (await select.inner_text(timeout=2000)).strip()
++            if option_text in select_text:
++                return
++            await select.click(force=True, timeout=5000)
++            await page.wait_for_timeout(300)
++            try:
++                await page.get_by_text(option_text, exact=True).last.click(force=True, timeout=5000)
++            except Exception:
++                select_debug_path = Path(BASE_DIR) / "logs" / f"douyin_location_select_{option_text}.png"
++                await page.screenshot(path=str(select_debug_path), full_page=True)
++                douyin_logger.error(_msg("📍", f"没点到「{option_text}」选项，截图已保存: {select_debug_path}"))
++                raise
++            await page.wait_for_timeout(500)
++
++        await choose_add_tag_select(1, "位置")
++        await choose_add_tag_select(2, "带货模式")
++
++        location_trigger = page.get_by_text("输入地理位置", exact=True).last
++        try:
++            await location_trigger.wait_for(state="visible", timeout=5000)
++            await location_trigger.click(force=True, timeout=5000)
++        except Exception:
++            add_tag_box = await add_tag_label.bounding_box()
++            if not add_tag_box:
++                raise
++            await page.mouse.click(add_tag_box["x"] + 430, add_tag_box["y"] + 12)
++        await page.wait_for_timeout(500)
++
++        await page.get_by_text("本地", exact=True).last.click(force=True, timeout=5000)
++        await page.wait_for_timeout(300)
++        await page.get_by_text("国内", exact=True).last.click(force=True, timeout=5000)
++        await page.wait_for_timeout(500)
++
++        await page.keyboard.press("Control+KeyA")
+         await page.keyboard.press("Backspace")
+-        await page.wait_for_timeout(2000)
+-        await page.keyboard.type(location)
+-        await page.wait_for_selector('div[role="listbox"] [role="option"]', timeout=5000)
+-        await page.locator('div[role="listbox"] [role="option"]').first.click()
++        await page.keyboard.type(location_query)
++        await page.wait_for_timeout(3000)
++
++        location_option = page.locator(
++            'xpath=//*[contains(normalize-space(.), "合肥滨湖银泰百货") and contains(normalize-space(.), "安徽省合肥市包河区")]'
++        ).last
++        try:
++            await location_option.wait_for(state="visible", timeout=10000)
++            await location_option.click(force=True, timeout=10000)
++        except Exception:
++            location_debug_path = Path(BASE_DIR) / "logs" / "douyin_location_no_match.png"
++            await page.screenshot(path=str(location_debug_path), full_page=True)
++            douyin_logger.error(_msg("📍", f"没有找到「合肥滨湖银泰百货」候选，截图已保存: {location_debug_path}"))
++            raise
++        douyin_logger.info(_msg("📍", "国内地理位置已选择: 合肥滨湖银泰百货"))
+ 
+     async def handle_product_dialog(self, page: Page, product_title: str):
+         await page.wait_for_timeout(2000)
+@@ -512,6 +582,7 @@ class DouYinVideo(DouYinBaseUploader):
+         productTitle="",
+         thumbnail_portrait_path=None,
+         desc: str | None = None,
++        location: str = "",
+         publish_strategy: str = DOUYIN_PUBLISH_STRATEGY_IMMEDIATE,
+         debug: bool = DEBUG_MODE,
+         headless: bool = LOCAL_CHROME_HEADLESS,
+@@ -531,6 +602,7 @@ class DouYinVideo(DouYinBaseUploader):
+         self.productLink = productLink
+         self.productTitle = productTitle
+         self.desc = desc or ""
++        self.location = location
+ 
+     async def validate_upload_args(self):
+         await self.validate_base_args()
+@@ -620,10 +692,13 @@ class DouYinVideo(DouYinBaseUploader):
+         douyin_logger.info(_msg("🥳", "上传前检查通过"))
+ 
+         browser = await playwright.chromium.launch(headless=self.headless, channel="chromium")
+-        context = await browser.new_context(
+-            storage_state=f"{self.account_file}",
+-            permissions=["geolocation"],
+-        )
++        context_options = {
++            "storage_state": f"{self.account_file}",
++            "permissions": ["geolocation"],
++        }
++        if "合肥" in self.location:
++            context_options["geolocation"] = {"latitude": 31.713518, "longitude": 117.298786}
++        context = await browser.new_context(**context_options)
+         context = await set_init_script(context)
+ 
+         page = await context.new_page()
+@@ -680,6 +755,8 @@ class DouYinVideo(DouYinBaseUploader):
+             await self.set_product_link(page, self.productLink, self.productTitle)
+             douyin_logger.info(_msg("🥳", "商品链接设置完成"))
+ 
++        await self.set_location(page, self.location)
++
+         await self.set_thumbnail(page)
+ 
+         await self.set_self_declaration(page)
+@@ -692,12 +769,17 @@ class DouYinVideo(DouYinBaseUploader):
+         if self.publish_strategy == DOUYIN_PUBLISH_STRATEGY_SCHEDULED and self.publish_date != 0:
+             await self.set_schedule_time_douyin(page, self.publish_date)
+ 
+-        while True:
++        publish_attempts = 0
++        while publish_attempts < 90:
+             try:
+                 # 移除会拦截发布按钮点击的新手引导/话题下拉浮层
+                 await page.evaluate(
+                     "() => { document.querySelectorAll('.shepherd-element, .shepherd-modal-overlay-container, [class*=\"mention-wrapper\"]').forEach(e => e.remove()); }"
+                 )
++                if self.debug and publish_attempts == 0:
++                    before_publish_path = Path(BASE_DIR) / "logs" / "douyin_before_publish.png"
++                    await page.screenshot(path=str(before_publish_path), full_page=True)
++                    douyin_logger.info(_msg("📸", f"发布前截图已保存: {before_publish_path}"))
+                 publish_button = page.get_by_role("button", name="发布", exact=True)
+                 if await publish_button.count():
+                     await publish_button.click(force=True)
+@@ -708,11 +790,15 @@ class DouYinVideo(DouYinBaseUploader):
+                 douyin_logger.success(_msg("🥳", "视频发布成功，小人开心收工"))
+                 break
+             except Exception:
++                publish_attempts += 1
+                 await self.handle_auto_video_cover(page)
+                 douyin_logger.info(_msg("🏃", "小人正在冲刺发布视频"))
+                 if self.debug:
+-                    await page.screenshot(full_page=True)
++                    retry_path = Path(BASE_DIR) / "logs" / "douyin_publish_retry.png"
++                    await page.screenshot(path=str(retry_path), full_page=True)
+                 await asyncio.sleep(0.5)
++        else:
++            raise RuntimeError("抖音发布未跳转到作品管理页，请查看 logs/douyin_publish_retry.png")
+ 
+         await context.storage_state(path=self.account_file)
+         douyin_logger.success(_msg("🥳", "cookie 更新完毕"))

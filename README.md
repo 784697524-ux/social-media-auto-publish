@@ -73,6 +73,29 @@ For a full Chinese walkthrough, read [USAGE.md](USAGE.md).
 ./bin/sau douyin check --account <douyin_account>
 ```
 
+## Douyin Local Group-Buy Video
+
+This package includes a runtime patch for Douyin local group-buy publishing:
+
+```bash
+./scripts/apply_douyin_groupbuy_patch.sh
+```
+
+After applying it, `sau douyin upload-video` supports `--location`. The Douyin uploader will switch the `添加标签` row to `位置`, select `带货模式`, use the `国内` location tab, search the POI, and select the matching result.
+
+```bash
+./bin/sau douyin upload-video \
+  --account <douyin_account> \
+  --file /path/to/video.mp4 \
+  --title "合肥滨湖银泰119双人逛吃卡，真的别划走" \
+  --desc "视频简介" \
+  --tags "合肥探店,合肥团购,合肥本地生活,滨湖银泰" \
+  --location "合肥滨湖银泰百货" \
+  --headed
+```
+
+Use `--headed` for the first run against a new Douyin account so the operator can see platform prompts and avoid duplicate publishing.
+
 ## Publish Image Notes
 
 ```bash

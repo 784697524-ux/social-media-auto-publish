@@ -94,7 +94,46 @@ kuaishou
 
 小红书图文正文建议控制在 1000 字以内。不要写“评论关键词”“关注后领取”“私信领取”“点赞收藏后获取”等诱导互动表达。
 
-## 6. 发布视频号
+## 6. 抖音本地团购视频发布
+
+本仓库提供一个 runtime patch，用于给 `sau douyin upload-video` 增加团购版位置发布能力：
+
+```bash
+./scripts/apply_douyin_groupbuy_patch.sh
+```
+
+应用后，视频发布命令可以增加 `--location`：
+
+```bash
+./bin/sau douyin upload-video \
+  --account <douyin_account> \
+  --file /path/to/video.mp4 \
+  --title "合肥滨湖银泰119双人逛吃卡，真的别划走" \
+  --desc "别人突然加你好友，说能给你打折。合肥滨湖银泰119双人逛吃卡，电影+餐饮+体验课，周末直接安排。" \
+  --tags "合肥探店,合肥团购,合肥本地生活,滨湖银泰,逛吃卡" \
+  --location "合肥滨湖银泰百货" \
+  --headed
+```
+
+CLI 会按抖音发布页的团购路径执行：
+
+1. 在 `添加标签` 行选择 `位置`
+2. 第二个下拉选择 `带货模式`
+3. 打开地理位置输入框
+4. 切换到 `国内`
+5. 搜索 `--location` 指定的 POI
+6. 选择包含目标城市地址的候选位置
+7. 继续发布
+
+发布前仍然要先检查账号：
+
+```bash
+./bin/sau douyin check --account <douyin_account>
+```
+
+返回 `valid` 后再发布。首次使用某个账号跑团购位置建议加 `--headed`，方便观察平台弹窗、封面诊断和位置候选，避免重复发布。
+
+## 7. 发布视频号
 
 视频号使用 direct scripts。先把图片卡片转成竖屏视频：
 
@@ -120,7 +159,7 @@ python scripts/publish_videohao.py \
 patches/tencent-cover-confirm.patch
 ```
 
-## 7. 隐私边界
+## 8. 隐私边界
 
 可以提交到 Git 的内容：
 
@@ -143,7 +182,7 @@ patches/tencent-cover-confirm.patch
 - `.venv` / `venv`
 - 真实账号密码、token、secret
 
-## 8. 常见问题
+## 9. 常见问题
 
 | 问题 | 原因 | 处理 |
 | --- | --- | --- |
@@ -152,8 +191,10 @@ patches/tencent-cover-confirm.patch
 | 小红书审核不通过 | 有诱导互动表达 | 删除评论、领取、私信、关注等 CTA |
 | 小红书点发布没反应 | 正文过长或页面限制 | 压缩正文，长内容做成图片卡片 |
 | 视频号卡在封面 | 封面弹窗未确认 | 确认封面后再发表 |
+| 抖音位置候选不对 | 未切到国内或浏览器定位偏到外地 | 使用 `--location` 并加 `--headed`，确认候选包含目标城市地址 |
+| 抖音重复发布风险 | 用完整发布命令做测试 | 测试时只跑 `check`、`--help`、参数解析和 patch 脚本，不要重复跑完整发布 |
 
-## 9. Codex 使用顺序
+## 10. Codex 使用顺序
 
 1. 先读本目录 `SKILL.md`。
 2. 再读对应平台子技能，比如 `skills/xiaohongshu-upload/SKILL.md`。

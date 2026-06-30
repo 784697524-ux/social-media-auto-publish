@@ -117,7 +117,30 @@ python scripts/publish_note.py \
 
 快手把 `--platform douyin` 改成 `--platform kuaishou`。
 
-## 8. 视频号发布
+## 8. 抖音团购视频挂本地位置
+
+先应用 runtime patch：
+
+```bash
+./scripts/apply_douyin_groupbuy_patch.sh
+```
+
+再使用 `--location` 发布视频：
+
+```bash
+./bin/sau douyin upload-video \
+  --account <douyin_account> \
+  --file /path/to/video.mp4 \
+  --title "标题" \
+  --desc "简介" \
+  --tags "合肥探店,合肥团购,合肥本地生活" \
+  --location "合肥滨湖银泰百货" \
+  --headed
+```
+
+这个能力用于抖音本地团购视频，会自动走 `添加标签 -> 位置 -> 带货模式 -> 国内 -> POI候选`。如果目标 POI 是商场、商圈或门店，`--location` 建议写完整名称，例如 `合肥滨湖银泰百货`，不要只写 `滨湖银泰`。
+
+## 9. 视频号发布
 
 视频号当前不走 `sau` 子命令，使用本技能的 direct scripts。
 
@@ -145,7 +168,7 @@ python scripts/publish_videohao.py \
 patches/tencent-cover-confirm.patch
 ```
 
-## 9. 常见问题
+## 10. 常见问题
 
 | 问题 | 原因 | 处理 |
 | --- | --- | --- |
@@ -153,9 +176,10 @@ patches/tencent-cover-confirm.patch
 | 笔记审核不通过 | 有诱导互动表达 | 删除评论、领取、私信、关注等 CTA |
 | cookie invalid | 登录过期 | 重新执行 login 并扫码 |
 | 视频号卡在封面 | 封面弹窗未确认 | 应用补丁或使用已修复 runtime |
+| 抖音位置选错城市 | 未切 `国内` 或浏览器定位偏移 | 使用团购版 `--location`，必要时加 `--headed` 观察 |
 | 找不到 sau | runtime 路径不一致 | 设置 `SOCIAL_AUTO_UPLOAD_HOME` |
 
-## 10. Codex 执行原则
+## 11. Codex 执行原则
 
 1. 先读 `SKILL.md` 和对应平台子技能。
 2. 先查 cookie，再发布。
