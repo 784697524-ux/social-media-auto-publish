@@ -55,6 +55,20 @@ $HOME/.openclaw/workspace/social-auto-upload/.venv/bin/python \
   --tags "AI运营,个人IP"
 ```
 
+Douyin local group-buy note publishing:
+
+```bash
+/path/to/social-media-auto-publish/bin/sau douyin upload-note \
+  --account <douyin_account> \
+  --images /path/to/01.png /path/to/02.png /path/to/03.png \
+  --title "慈溪城西银泰这两张先囤" \
+  --notef /path/to/caption.txt \
+  --location "慈溪城西银泰百货" \
+  --headed
+```
+
+If Douyin asks for an SMS code after clicking publish, this is a publish-side risk check. Wait for the code; do not report success until the CLI exits successfully or the creator management page/success state is reached.
+
 视频号 card-to-video publishing:
 
 ```bash

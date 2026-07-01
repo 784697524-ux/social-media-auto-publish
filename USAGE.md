@@ -94,9 +94,9 @@ kuaishou
 
 小红书图文正文建议控制在 1000 字以内。不要写“评论关键词”“关注后领取”“私信领取”“点赞收藏后获取”等诱导互动表达。
 
-## 6. 抖音本地团购视频发布
+## 6. 抖音本地团购发布
 
-本仓库提供一个 runtime patch，用于给 `sau douyin upload-video` 增加团购版位置发布能力：
+本仓库提供一个 runtime patch，用于给 `sau douyin upload-video` 和 `sau douyin upload-note` 增加团购版位置发布能力：
 
 ```bash
 ./scripts/apply_douyin_groupbuy_patch.sh
@@ -120,10 +120,22 @@ CLI 会按抖音发布页的团购路径执行：
 1. 在 `添加标签` 行选择 `位置`
 2. 第二个下拉选择 `带货模式`
 3. 打开地理位置输入框
-4. 切换到 `国内`
+4. 切换到 `国内`（图文页如果是页内输入框，也会优先走国内候选）
 5. 搜索 `--location` 指定的 POI
-6. 选择包含目标城市地址的候选位置
+6. 选择包含目标城市地址的候选位置，并校验位置字段真的保留
 7. 继续发布
+
+图文团购发布命令：
+
+```bash
+./bin/sau douyin upload-note \
+  --account <douyin_account> \
+  --images /path/to/01.png /path/to/02.png /path/to/03.png \
+  --title "慈溪城西银泰这两张先囤" \
+  --notef /path/to/caption.txt \
+  --location "慈溪城西银泰百货" \
+  --headed
+```
 
 发布前仍然要先检查账号：
 
@@ -132,6 +144,8 @@ CLI 会按抖音发布页的团购路径执行：
 ```
 
 返回 `valid` 后再发布。首次使用某个账号跑团购位置建议加 `--headed`，方便观察平台弹窗、封面诊断和位置候选，避免重复发布。
+
+注意：抖音可能在点击发布后要求短信验证码，这是发布风控，不是 cookie 失效。CLI 会提示输入验证码；没有验证码时不会返回发布成功。发布成功以页面出现成功状态或进入作品管理页为准，不能只看“位置已选择”。
 
 ## 7. 发布视频号
 

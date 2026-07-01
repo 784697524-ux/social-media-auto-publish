@@ -140,6 +140,20 @@ python scripts/publish_note.py \
 
 这个能力用于抖音本地团购视频，会自动走 `添加标签 -> 位置 -> 带货模式 -> 国内 -> POI候选`。如果目标 POI 是商场、商圈或门店，`--location` 建议写完整名称，例如 `合肥滨湖银泰百货`，不要只写 `滨湖银泰`。
 
+图文团购发布也使用同一个 `--location` 参数：
+
+```bash
+./bin/sau douyin upload-note \
+  --account <douyin_account> \
+  --images /path/to/01.png /path/to/02.png /path/to/03.png \
+  --title "慈溪城西银泰这两张先囤" \
+  --notef /path/to/caption.txt \
+  --location "慈溪城西银泰百货" \
+  --headed
+```
+
+图文发布会校验位置字段是否真的保留；如果抖音在点击发布后要求短信验证码，这是发布风控，不是 cookie 失效。没有输入验证码时不能报告已发布。
+
 ## 9. 视频号发布
 
 视频号当前不走 `sau` 子命令，使用本技能的 direct scripts。
@@ -176,7 +190,8 @@ patches/tencent-cover-confirm.patch
 | 笔记审核不通过 | 有诱导互动表达 | 删除评论、领取、私信、关注等 CTA |
 | cookie invalid | 登录过期 | 重新执行 login 并扫码 |
 | 视频号卡在封面 | 封面弹窗未确认 | 应用补丁或使用已修复 runtime |
-| 抖音位置选错城市 | 未切 `国内` 或浏览器定位偏移 | 使用团购版 `--location`，必要时加 `--headed` 观察 |
+| 抖音位置选错城市 | 未切 `国内`、候选选到商场内店铺或浏览器定位偏移 | 使用团购版 `--location`，必要时加 `--headed` 观察；脚本会校验位置字段保留 |
+| 抖音点击发布后要验证码 | 发布侧风控，不是登录失效 | 输入短信验证码继续；未输入验证码时不要认为发布成功 |
 | 找不到 sau | runtime 路径不一致 | 设置 `SOCIAL_AUTO_UPLOAD_HOME` |
 
 ## 11. Codex 执行原则

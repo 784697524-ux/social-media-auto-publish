@@ -73,7 +73,7 @@ For a full Chinese walkthrough, read [USAGE.md](USAGE.md).
 ./bin/sau douyin check --account <douyin_account>
 ```
 
-## Douyin Local Group-Buy Video
+## Douyin Local Group-Buy Publishing
 
 This package includes a runtime patch for Douyin local group-buy publishing:
 
@@ -81,7 +81,7 @@ This package includes a runtime patch for Douyin local group-buy publishing:
 ./scripts/apply_douyin_groupbuy_patch.sh
 ```
 
-After applying it, `sau douyin upload-video` supports `--location`. The Douyin uploader will switch the `添加标签` row to `位置`, select `带货模式`, use the `国内` location tab, search the POI, and select the matching result.
+After applying it, `sau douyin upload-video` and `sau douyin upload-note` support `--location`. The Douyin uploader will switch the `添加标签` row to `位置`, select `带货模式`, use the `国内` location tab when available, search the POI, select the matching result, and verify that the selected location is actually retained before publishing.
 
 ```bash
 ./bin/sau douyin upload-video \
@@ -95,6 +95,20 @@ After applying it, `sau douyin upload-video` supports `--location`. The Douyin u
 ```
 
 Use `--headed` for the first run against a new Douyin account so the operator can see platform prompts and avoid duplicate publishing.
+
+Image note example:
+
+```bash
+./bin/sau douyin upload-note \
+  --account <douyin_account> \
+  --images /path/to/01.png /path/to/02.png /path/to/03.png \
+  --title "慈溪城西银泰这两张先囤" \
+  --notef /path/to/caption.txt \
+  --location "慈溪城西银泰百货" \
+  --headed
+```
+
+If Douyin shows a publish-side SMS verification after the publish click, the CLI prompts for the code and waits. This means the account is logged in but the platform requires an additional publishing risk check.
 
 ## Publish Image Notes
 
@@ -126,3 +140,4 @@ python scripts/publish_videohao.py \
 - Xiaohongshu image-note body should stay under 1000 characters.
 - Do not use interaction-bait wording such as asking users to comment, reply with keywords, follow, like, collect, or DM to receive resources.
 - For 视频号, confirm the cover dialog before publishing; see `patches/tencent-cover-confirm.patch`.
+- Douyin local group-buy publishing is only considered successful after a success marker or the creator management page is reached. A selected POI alone is not a successful publish.

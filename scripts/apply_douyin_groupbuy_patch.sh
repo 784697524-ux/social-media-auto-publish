@@ -15,11 +15,11 @@ if [ ! -f "$patch_file" ]; then
   exit 1
 fi
 
-if git -C "$runtime" apply --reverse --check "$patch_file" >/dev/null 2>&1; then
+if git -C "$runtime" apply --unidiff-zero --reverse --check "$patch_file" >/dev/null 2>&1; then
   echo "douyin group-buy patch already applied: $runtime"
 else
-  git -C "$runtime" apply --check "$patch_file"
-  git -C "$runtime" apply "$patch_file"
+  git -C "$runtime" apply --unidiff-zero --check "$patch_file"
+  git -C "$runtime" apply --unidiff-zero "$patch_file"
   echo "applied douyin group-buy patch: $runtime"
 fi
 
@@ -27,7 +27,9 @@ pushd "$runtime" >/dev/null
 "$runtime/.venv/bin/python" -m py_compile sau_cli.py uploader/douyin_uploader/main.py
 "$runtime/.venv/bin/python" -m unittest \
   tests.test_sau_browser_cli.BrowserCliParserTests.test_douyin_upload_video_accepts_location \
+  tests.test_sau_browser_cli.BrowserCliParserTests.test_douyin_upload_note_accepts_location \
+  tests.test_sau_browser_cli.BrowserCliDispatchTests.test_dispatch_douyin_upload_note_uses_new_request_fields \
   tests.test_sau_browser_cli.BrowserCliDispatchTests.test_dispatch_douyin_upload_video_uses_dual_thumbnail_request_fields
 popd >/dev/null
 
-echo "douyin group-buy CLI is ready. Use: sau douyin upload-video ... --location \"合肥滨湖银泰百货\" --headed"
+echo "douyin group-buy CLI is ready. Use: sau douyin upload-video/upload-note ... --location \"合肥滨湖银泰百货\" --headed"
