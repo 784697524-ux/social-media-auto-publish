@@ -84,7 +84,7 @@ index c006b29..b3d072e 100644
 @@ -221,0 +275 @@ class BrowserCliDispatchTests(unittest.TestCase):
 +        self.assertEqual(request.location, "合肥滨湖银泰")
 diff --git a/uploader/douyin_uploader/main.py b/uploader/douyin_uploader/main.py
-index 772086b..644d5da 100644
+index 772086b..9e42124 100644
 --- a/uploader/douyin_uploader/main.py
 +++ b/uploader/douyin_uploader/main.py
 @@ -6,0 +7 @@ import os
@@ -112,7 +112,7 @@ index 772086b..644d5da 100644
 +        if desc_text:
 +            await page.keyboard.type(desc_text)
 +
-@@ -326 +336,175 @@ class DouYinBaseUploader(BaseVideoUploader):
+@@ -326 +336,253 @@ class DouYinBaseUploader(BaseVideoUploader):
 -        await page.locator('div.semi-select span:has-text("输入地理位置")').click()
 +        location_query = "合肥滨湖银泰百货" if location == "合肥滨湖银泰" else location
 +        douyin_logger.info(_msg("📍", f"小人正在设置国内地理位置: {location_query}"))
@@ -151,8 +151,23 @@ index 772086b..644d5da 100644
 +                return
 +            await select.click(force=True, timeout=5000)
 +            await page.wait_for_timeout(300)
++            option_locators = [
++                page.locator(
++                    f'xpath=(//*[contains(@class, "semi-portal") or contains(@class, "semi-popover") or contains(@class, "semi-dropdown")]//*[normalize-space(.)="{option_text}" or contains(normalize-space(.), "{option_text}")])[1]'
++                ),
++                page.locator(f'[role="option"]:has-text("{option_text}")').first,
++                page.locator(f'.semi-select-option:has-text("{option_text}")').first,
++            ]
 +            try:
-+                await page.get_by_text(option_text, exact=True).last.click(force=True, timeout=5000)
++                clicked = False
++                for option_locator in option_locators:
++                    if not await option_locator.count():
++                        continue
++                    await option_locator.first.click(force=True, timeout=5000)
++                    clicked = True
++                    break
++                if not clicked:
++                    raise RuntimeError(f"tag option not found: {option_text}")
 +            except Exception:
 +                select_debug_path = Path(BASE_DIR) / "logs" / f"douyin_location_select_{option_text}.png"
 +                await page.screenshot(path=str(select_debug_path), full_page=True)
@@ -161,21 +176,45 @@ index 772086b..644d5da 100644
 +            await page.wait_for_timeout(500)
 +
 +        async def switch_to_domestic_if_present():
-+            domestic_tabs = [
-+                page.locator('xpath=//*[normalize-space(.)="国内"]'),
-+                page.get_by_text("国内", exact=True),
-+            ]
-+            for domestic_tab in domestic_tabs:
-+                try:
-+                    if await domestic_tab.count():
++            for _ in range(10):
++                domestic_tabs = [
++                    page.locator('xpath=//*[normalize-space(.)="国内"]'),
++                    page.locator('xpath=//*[contains(normalize-space(.), "国内")]'),
++                    page.locator('xpath=//*[contains(@class, "tab") and contains(normalize-space(.), "国内")]'),
++                    page.get_by_text("国内", exact=True),
++                ]
++                for domestic_tab in domestic_tabs:
++                    try:
++                        if not await domestic_tab.count():
++                            continue
++                        await domestic_tab.last.wait_for(state="visible", timeout=1000)
 +                        await domestic_tab.last.click(force=True, timeout=3000)
-+                        await page.wait_for_timeout(500)
++                        await page.wait_for_timeout(600)
 +                        return True
-+                except Exception:
-+                    continue
++                    except Exception:
++                        continue
++                await page.wait_for_timeout(500)
 +            return False
 +
 +        async def choose_location_option():
++            await page.wait_for_timeout(2000)
++            first_option_locators = [
++                page.locator(
++                    'xpath=(//*[contains(@class, "semi-portal") or contains(@class, "semi-popover") or contains(@class, "semi-dropdown")]//*[contains(@class, "semi-select-option") or @role="option"])[1]'
++                ),
++                page.locator(
++                    'xpath=(//*[contains(@class, "semi-portal") or contains(@class, "semi-popover") or contains(@class, "semi-dropdown")]//*[contains(@class, "semi-list-row")])[1]'
++                ),
++            ]
++            for option_locator in first_option_locators:
++                try:
++                    if not await option_locator.count():
++                        continue
++                    await option_locator.first.wait_for(state="visible", timeout=5000)
++                    await option_locator.first.click(force=True, timeout=5000)
++                    return True
++                except Exception:
++                    continue
 +            option_locators = []
 +            for variant in location_variants:
 +                option_locators.append(
@@ -211,6 +250,22 @@ index 772086b..644d5da 100644
 +                return False
 +            return False
 +
++        async def wait_for_location_options():
++            for _ in range(20):
++                try:
++                    option_text = await page.locator(
++                        'xpath=(//*[contains(@class, "semi-portal") or contains(@class, "semi-popover") or contains(@class, "semi-dropdown")]//*[contains(@class, "semi-select-option") or @role="option" or contains(@class, "semi-list-row")])[1]'
++                    ).inner_text(timeout=1000)
++                    if option_text.strip() and ("银泰" in option_text or "慈溪" in option_text):
++                        return
++                except Exception:
++                    pass
++                await page.wait_for_timeout(500)
++            options_debug_path = Path(BASE_DIR) / "logs" / "douyin_location_options_wait_failed.png"
++            await page.screenshot(path=str(options_debug_path), full_page=True)
++            douyin_logger.error(_msg("📍", f"输入位置后候选列表没有刷新，截图已保存: {options_debug_path}"))
++            raise RuntimeError("location options did not appear")
++
 +        async def assert_location_selected():
 +            await page.wait_for_timeout(800)
 +            selected_text = ""
@@ -239,17 +294,45 @@ index 772086b..644d5da 100644
 +                raise
 +            douyin_logger.info(_msg("📍", success_message))
 +
-+        await choose_add_tag_select(1, "位置")
-+        await choose_add_tag_select(2, "带货模式")
++        async def type_location_into_input(input_locator):
++            current_input = input_locator
++            visible_inputs = page.locator(
++                'input[placeholder*="输入城市+位置名称搜索"], input[placeholder*="输入相关位置"], input[placeholder*="输入地理位置"]'
++            )
++            for i in range(await visible_inputs.count()):
++                candidate = visible_inputs.nth(i)
++                box = await candidate.bounding_box()
++                if box and box["width"] > 50 and box["height"] > 10:
++                    current_input = candidate
++                    break
 +
++            await current_input.wait_for(state="visible", timeout=5000)
++            await current_input.click(force=True, timeout=5000)
++            await page.keyboard.press("Control+KeyA")
++            await page.keyboard.press("Backspace")
++            await page.wait_for_timeout(300)
++            await page.keyboard.type(location_query, delay=80)
++            await wait_for_location_options()
++            input_value = (await current_input.input_value()).strip()
++            if location_query not in input_value:
++                type_debug_path = Path(BASE_DIR) / "logs" / "douyin_location_input_failed.png"
++                await page.screenshot(path=str(type_debug_path), full_page=True)
++                douyin_logger.error(_msg("📍", f"位置输入框未写入目标文案，截图已保存: {type_debug_path}"))
++                raise RuntimeError(f"location input value mismatch: {input_value}")
++
++        row_location_input = page.locator(
++            'xpath=(//*[normalize-space(.)="添加标签"]/following::input[contains(@placeholder, "输入城市+位置名称搜索") or contains(@placeholder, "输入相关位置") or contains(@placeholder, "输入地理位置")])[1]'
++        ).first
 +        inline_location_input = page.locator(
-+            'input[placeholder*="输入相关位置"], input[placeholder*="输入地理位置"]'
++            'input[placeholder*="输入城市+位置名称搜索"], input[placeholder*="输入相关位置"], input[placeholder*="输入地理位置"]'
 +        ).last
 +        if await inline_location_input.count():
-+            await inline_location_input.click(force=True, timeout=5000)
-+            await switch_to_domestic_if_present()
-+            await inline_location_input.click(force=True, timeout=5000)
-+            await inline_location_input.fill(location_query)
++            preferred_input = row_location_input if await row_location_input.count() else inline_location_input
++            await preferred_input.click(force=True, timeout=5000)
++            if not await switch_to_domestic_if_present():
++                raise RuntimeError("domestic tab not found")
++            preferred_input = row_location_input if await row_location_input.count() else inline_location_input
++            await type_location_into_input(preferred_input)
 +            await page.wait_for_timeout(3000)
 +            await finalize_location_select(f"地理位置已选择: {location_query}")
 +            return
@@ -259,7 +342,8 @@ index 772086b..644d5da 100644
 +        ).last
 +        if await inline_location_trigger.count():
 +            await inline_location_trigger.click(force=True, timeout=5000)
-+            await switch_to_domestic_if_present()
++            if not await switch_to_domestic_if_present():
++                raise RuntimeError("domestic tab not found")
 +            await page.keyboard.press("Control+KeyA")
 +            await page.keyboard.press("Backspace")
 +            await page.keyboard.type(location_query)
@@ -278,18 +362,12 @@ index 772086b..644d5da 100644
 +            await page.mouse.click(add_tag_box["x"] + 430, add_tag_box["y"] + 12)
 +        await page.wait_for_timeout(500)
 +
-+        try:
-+            local_tab = page.get_by_text("本地", exact=True).last
-+            if await local_tab.count():
-+                await local_tab.click(force=True, timeout=2000)
-+                await page.wait_for_timeout(300)
-+        except Exception:
-+            pass
-+        await switch_to_domestic_if_present()
++        if not await switch_to_domestic_if_present():
++            raise RuntimeError("domestic tab not found")
 +        await page.wait_for_timeout(500)
 +
 +        await page.keyboard.press("Control+KeyA")
-@@ -328,4 +512,4 @@ class DouYinBaseUploader(BaseVideoUploader):
+@@ -328,4 +590,4 @@ class DouYinBaseUploader(BaseVideoUploader):
 -        await page.wait_for_timeout(2000)
 -        await page.keyboard.type(location)
 -        await page.wait_for_selector('div[role="listbox"] [role="option"]', timeout=5000)
@@ -298,11 +376,11 @@ index 772086b..644d5da 100644
 +        await page.wait_for_timeout(3000)
 +
 +        await finalize_location_select(f"国内地理位置已选择: {location_query}")
-@@ -514,0 +699 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -514,0 +777 @@ class DouYinVideo(DouYinBaseUploader):
 +        location: str = "",
-@@ -533,0 +719 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -533,0 +797 @@ class DouYinVideo(DouYinBaseUploader):
 +        self.location = location
-@@ -623,4 +809,7 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -623,4 +887,7 @@ class DouYinVideo(DouYinBaseUploader):
 -        context = await browser.new_context(
 -            storage_state=f"{self.account_file}",
 -            permissions=["geolocation"],
@@ -314,38 +392,38 @@ index 772086b..644d5da 100644
 +        if "合肥" in self.location:
 +            context_options["geolocation"] = {"latitude": 31.713518, "longitude": 117.298786}
 +        context = await browser.new_context(**context_options)
-@@ -682,0 +872,2 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -682,0 +950,2 @@ class DouYinVideo(DouYinBaseUploader):
 +        await self.set_location(page, self.location)
 +
-@@ -695 +886,2 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -695 +964,2 @@ class DouYinVideo(DouYinBaseUploader):
 -        while True:
 +        publish_attempts = 0
 +        while publish_attempts < 90:
-@@ -700,0 +893,4 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -700,0 +971,4 @@ class DouYinVideo(DouYinBaseUploader):
 +                if self.debug and publish_attempts == 0:
 +                    before_publish_path = Path(BASE_DIR) / "logs" / "douyin_before_publish.png"
 +                    await page.screenshot(path=str(before_publish_path), full_page=True)
 +                    douyin_logger.info(_msg("📸", f"发布前截图已保存: {before_publish_path}"))
-@@ -710,0 +907 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -710,0 +985 @@ class DouYinVideo(DouYinBaseUploader):
 +                publish_attempts += 1
-@@ -714 +911,2 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -714 +989,2 @@ class DouYinVideo(DouYinBaseUploader):
 -                    await page.screenshot(full_page=True)
 +                    retry_path = Path(BASE_DIR) / "logs" / "douyin_publish_retry.png"
 +                    await page.screenshot(path=str(retry_path), full_page=True)
-@@ -715,0 +914,2 @@ class DouYinVideo(DouYinBaseUploader):
+@@ -715,0 +992,2 @@ class DouYinVideo(DouYinBaseUploader):
 +        else:
 +            raise RuntimeError("抖音发布未跳转到作品管理页，请查看 logs/douyin_publish_retry.png")
-@@ -743,0 +944 @@ class DouYinNote(DouYinBaseUploader):
+@@ -743,0 +1022 @@ class DouYinNote(DouYinBaseUploader):
 +        location: str = "",
-@@ -756,0 +958 @@ class DouYinNote(DouYinBaseUploader):
+@@ -756,0 +1036 @@ class DouYinNote(DouYinBaseUploader):
 +        self.location = location
-@@ -816,0 +1019,2 @@ class DouYinNote(DouYinBaseUploader):
+@@ -816,0 +1097,2 @@ class DouYinNote(DouYinBaseUploader):
 +        await self.set_location(page, self.location)
 +
-@@ -820 +1024 @@ class DouYinNote(DouYinBaseUploader):
+@@ -820 +1102 @@ class DouYinNote(DouYinBaseUploader):
 -        while True:
 +        async def click_if_exists(locator, timeout=1500):
-@@ -822,9 +1026,47 @@ class DouYinNote(DouYinBaseUploader):
+@@ -822,9 +1104,4 @@ class DouYinNote(DouYinBaseUploader):
 -                publish_button = page.get_by_role("button", name="发布", exact=True)
 -                if await publish_button.count():
 -                    await publish_button.click()
@@ -359,7 +437,8 @@ index 772086b..644d5da 100644
 +                    await locator.first.click(force=True, timeout=timeout)
 +                    await page.wait_for_timeout(500)
 +                    return True
-+            except Exception:
+@@ -832 +1109,122 @@ class DouYinNote(DouYinBaseUploader):
+-                douyin_logger.info(_msg("🏃", "小人正在冲刺发布图文"))
 +                return False
 +            return False
 +
@@ -402,8 +481,7 @@ index 772086b..644d5da 100644
 +            body_text = ""
 +            try:
 +                body_text = await page.locator("body").inner_text(timeout=2000)
-@@ -832 +1074,79 @@ class DouYinNote(DouYinBaseUploader):
--                douyin_logger.info(_msg("🏃", "小人正在冲刺发布图文"))
++            except Exception:
 +                pass
 +            if "获取验证码" in body_text and "选择其他验证方式" in body_text:
 +                try:
@@ -483,13 +561,13 @@ index 772086b..644d5da 100644
 +                raise RuntimeError("publish result timeout")
 +            except Exception:
 +                douyin_logger.info(_msg("🏃", f"小人正在冲刺发布图文({publish_attempt}/3)，当前页面: {page.url}"))
-@@ -833,0 +1154,5 @@ class DouYinNote(DouYinBaseUploader):
+@@ -833,0 +1232,5 @@ class DouYinNote(DouYinBaseUploader):
 +        else:
 +            publish_debug_path = Path(BASE_DIR) / "logs" / "douyin_note_publish_failed.png"
 +            await page.screenshot(path=str(publish_debug_path), full_page=True)
 +            douyin_logger.error(_msg("😵", f"图文发布未成功，截图已保存: {publish_debug_path}"))
 +            raise RuntimeError("douyin note publish did not finish")
-@@ -841,4 +1166,7 @@ class DouYinNote(DouYinBaseUploader):
+@@ -841,4 +1244,7 @@ class DouYinNote(DouYinBaseUploader):
 -        context = await browser.new_context(
 -            storage_state=f"{self.account_file}",
 -            permissions=["geolocation"],
