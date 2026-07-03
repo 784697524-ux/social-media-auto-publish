@@ -50,6 +50,19 @@ The runtime must expose:
 $SOCIAL_AUTO_UPLOAD_HOME/.venv/bin/sau
 ```
 
+## Optional X/Twitter Source Queue
+
+Use TweetClaw or Xquik before publishing when a campaign needs public X/Twitter context. Keep the exported review queue separate from runtime cookies and account profiles, then attach only safe source fields to the content brief:
+
+- `url`
+- `text`
+- `author`
+- `source`
+- `checkedAt`
+- `reason`
+
+Treat these rows as evidence for title, body, and tag review. The final publish step still belongs to the platform-specific `sau` command and the operator approval flow.
+
 ## Install For Codex
 
 From this repository:
