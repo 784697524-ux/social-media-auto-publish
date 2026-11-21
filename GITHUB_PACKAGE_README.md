@@ -4,7 +4,9 @@ This folder stores the packaged Codex skill `social-media-auto-publish`.
 
 ## Files
 
-- `README.md`: this package note
+- `README.md`: current platform and runtime overview
+- `references/latest-cli.md`: current `publish-batch` / `social` / YouTube command guide
+- `bin/yingxu-publish`: forwards current commands to an installed `briefrun-director`
 - `restore.sh`: restore the full skill package from base64 archive
 - `social-media-auto-publish.tar.gz.base64`: full packaged skill archive
 - `social-media-auto-publish.sha256`: SHA-256 checksum for the restored tar.gz
@@ -30,6 +32,7 @@ social-media-auto-publish/
   SKILL.md
   README.md
   bin/sau
+  bin/yingxu-publish
   install.sh
   scripts/
   skills/

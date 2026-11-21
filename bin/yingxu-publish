@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+director="${BRIEFRUN_DIRECTOR_HOME:-$HOME/.codex/skills/briefrun-director}"
+runner="$director/tools/scripts/run_module.py"
+python="${BRIEFRUN_PYTHON:-python3}"
+
+if [ ! -f "$runner" ]; then
+  echo "Missing current 映序发布 CLI: $runner" >&2
+  echo "Install briefrun-director or set BRIEFRUN_DIRECTOR_HOME to its skill directory." >&2
+  exit 1
+fi
+
+exec "$python" "$runner" "$@"

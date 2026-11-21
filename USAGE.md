@@ -1,4 +1,6 @@
-# social-media-auto-publish 使用教程
+# social-media-auto-publish 使用教程（旧版 sau 兼容）
+
+> 新项目请先阅读 [最新 CLI 指南](references/latest-cli.md)。现行抖音国内 POI 使用 `publish-batch`，小红书/视频号/快手/B站使用 `social` 清单；本页仅保留旧 `sau` runtime 的兼容用法。
 
 这是一个给 Codex 使用的社媒自动发布技能包。它负责把已准备好的标题、正文、图片、视频交给本机 `social-auto-upload` runtime 发布。
 
@@ -12,7 +14,8 @@
 | 抖音 | 支持 | 支持 | `sau douyin ...` |
 | 快手 | 支持 | 支持 | `sau kuaishou ...` |
 | Bilibili | 不适用 | 支持 | `sau bilibili ...` |
-| 视频号 | 图片转视频 | 支持 | `scripts/publish_videohao.py` |
+| 视频号 | 图片转视频 | 支持 | `scripts/publish_videohao.py` / `sau tencent ...` |
+| 优兔（YouTube） | 不适用 | 支持 | `sau youtube ...` |
 
 ## 2. 前置依赖
 
@@ -53,13 +56,14 @@ cd social-media-auto-publish
 
 ## 4. 登录检查
 
-发布前先检查平台登录状态：
+只在明确要求做账号诊断时检查平台登录状态；新的抖音 `publish-batch` 会在同一发布会话内核验账号，避免每次发布前另开浏览器：
 
 ```bash
 ./bin/sau xiaohongshu check --account <xiaohongshu_account>
 ./bin/sau douyin check --account <douyin_account>
 ./bin/sau kuaishou check --account <kuaishou_account>
 ./bin/sau bilibili check --account <bilibili_account>
+./bin/sau youtube check --account <youtube_account>
 ```
 
 返回 `valid` 再发布。返回 `invalid` 时重新登录：

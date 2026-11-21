@@ -5,6 +5,8 @@ description: 当 agent 需要通过已安装的 `sau` CLI 完成 Bilibili 登录
 
 # Bilibili 上传 Skill
 
+> 这是旧 `sau` 兼容 skill。新 AI 单视频发布优先读根目录 `references/latest-cli.md` 并使用 `bin/yingxu-publish social -- plan/submit/status`；本页仅在明确要求旧 runtime 时使用。
+
 优先把 `sau` 作为主接口。
 
 不要一开始就让用户自己找 `biliup` 或手动下载 release。

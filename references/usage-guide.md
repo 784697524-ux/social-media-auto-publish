@@ -1,4 +1,6 @@
-# 社媒自动发布技能使用教程
+# 社媒自动发布技能使用教程（旧版 sau 兼容）
+
+> 这份文档记录旧 `social-auto-upload` runtime。新项目使用根目录 [最新 CLI 指南](latest-cli.md)：抖音 POI 用 `bin/yingxu-publish publish -- publish-batch`，小红书、视频号、快手与B站的 AI 单视频用 `bin/yingxu-publish social` 清单。
 
 ## 1. 技能定位
 
@@ -61,7 +63,7 @@ $SOCIAL_AUTO_UPLOAD_HOME/.venv/bin/sau
 
 ## 5. 发布前检查
 
-每次发布前先检查登录状态：
+仅在明确要求做账号诊断时检查登录状态；新的抖音 `publish-batch` 会在同一发布会话内核对账号：
 
 ```bash
 ./bin/sau xiaohongshu check --account <xiaohongshu_account>

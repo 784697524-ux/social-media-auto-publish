@@ -1,4 +1,6 @@
-# Local Install Notes
+# Local Install Notes（旧版 sau runtime）
+
+> 当前映序 `publish-batch` / `social` 命令由根目录的 `bin/yingxu-publish` 转交已安装的 `briefrun-director`。本页只适用于保留的旧 `sau` 兼容入口。
 
 This project keeps only the Codex-facing skill bundle. The full runtime remains in:
 

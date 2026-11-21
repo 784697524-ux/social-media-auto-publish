@@ -5,6 +5,8 @@ description: 当 agent 需要通过已安装的 `sau` CLI 完成抖音登录、c
 
 # 抖音上传 Skill
 
+> 这是旧 `sau` 兼容 skill。新抖音国内 POI 或指定团购商品任务必须先读根目录 `references/latest-cli.md`，并使用 `bin/yingxu-publish publish -- publish-batch`；不要用本页的 `upload-video --location` 新开任务。
+
 优先把 `sau` 作为主接口。
 
 不要假设当前环境一定能读取仓库源码。
